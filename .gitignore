@@ -3,3 +3,5 @@
 kubebrain/
 kubernetes/
 admin.kubeconfig
+kube-apiserver
+kube-apiserver.sha256
