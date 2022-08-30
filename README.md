@@ -43,7 +43,9 @@ Additionally, if one is not operating on Linux, using containers is much less co
 * cfssl
 * some unix tools required to build kube-apiserver
 
-Kubernetes does not distribute arm64 binaries for kube-apiserver, so the script will git clone and build from source. All the needed tools can be installed with brew on Mac.
+Kubernetes only distributes binaries for kube-apiserver for linux, so the script will git clone and build from source for other platforms.
+
+All the needed tools to install will be shown as errors and can be installed with brew on Mac.
 
 ## About
 

@@ -6,10 +6,9 @@ if ! curl -s 127.0.0.1:2379 | grep 404 ; then
 		git clone https://github.com/kubewharf/kubebrain
 	fi
 	pushd kubebrain
-	make badger
-	echo "launching kube-brain for data storage"
-	./bin/kube-brain &
-	trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+	if ! [[ -f ./bin/kube-brain ]] ; then
+		make badger
+	fi
 	popd
 fi
 
@@ -38,21 +37,34 @@ fi
 sa_key=service-account-key.pem
 sa=service-account.pem
 
+K8S_VERSION=v1.25.0
 apiserver=kube-apiserver
 if ! command -v $apiserver ; then
 	os="$(uname | tr '[:upper:]' '[:lower:]')"
 	arch="$(uname -m)"
-	apiserver=./kubernetes/_output/local/bin/$os/$arch/kube-apiserver
+	if [[ "$os" == linux ]] ; then
+		apiserver=./kube-apiserver
+	else
+		apiserver=./kubernetes/_output/local/bin/$os/$arch/kube-apiserver
+	fi
+
 	if ! [[ -f $apiserver ]] ; then
-		if ! [[ -d kubernetes ]] ; then
-		  git clone https://github.com/kubernetes/kubernetes
-		  pushd kubernetes
-		  git checkout v1.25.0
-		  popd
+		if [[ "$arch" == linux ]] ; then
+			echo "downloading kube-apiserver"
+			wget https://dl.k8s.io/v1.25.0/bin/$os/$arch/kube-apiserver
+			chmod +x kube-apiserver
+		else
+			echo "compiling kube-apiserver from source"
+			if ! [[ -d kubernetes ]] ; then
+			  git clone https://github.com/kubernetes/kubernetes
+			  pushd kubernetes
+			  git checkout $K8s_VERSION
+			  popd
+			fi
+			pushd kubernetes
+			make
+			popd
 		fi
-		pushd kubernetes
-		make
-		popd
 	fi
 fi
 
@@ -65,6 +77,12 @@ if ! [[ -f kubernetes-csr-key.pem ]] ; then
 	  -profile=kubernetes \
 	  ./csr/kubernetes-csr.json | cfssljson -bare kubernetes
 fi
+
+pushd kubebrain
+echo "launching kube-brain for data storage"
+./bin/kube-brain &
+trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+popd
 
 $apiserver --storage-backend=etcd3 --etcd-servers=http://127.0.0.1:2379 \
 	--allow-privileged=true \
